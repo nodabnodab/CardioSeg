@@ -10,7 +10,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling for Sleek Aesthetic
+# Custom Styling for Sleek Aesthetic (Light/Dark Mode Adaptive)
 st.markdown("""
 <style>
     .main-title {
@@ -21,22 +21,27 @@ st.markdown("""
     }
     .sub-title {
         font-size: 1.2rem;
-        color: #555;
+        color: var(--text-color);
+        opacity: 0.75;
         margin-bottom: 2rem;
     }
     .metric-box {
-        background-color: #f0f2f6;
+        background-color: var(--secondary-background-color);
+        color: var(--text-color);
         padding: 1.5rem;
         border-radius: 10px;
         border-left: 5px solid #ff4b4b;
         margin-bottom: 1rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.05);
     }
     .calc-box {
-        background-color: #e8f4fd;
+        background-color: rgba(31, 119, 180, 0.08);
+        color: var(--text-color);
         padding: 1.5rem;
         border-radius: 10px;
         border-left: 5px solid #1f77b4;
         margin-bottom: 1rem;
+        border: 1px solid rgba(31, 119, 180, 0.15);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -194,7 +199,7 @@ with tab4:
             <hr>
             <p>• <b>복셀 1개의 부피:</b> {voxel_vol_mm3:.4f} mm³</p>
             <p>• <b>총 부피 (mm³):</b> {total_vol_mm3:,.2f} mm³</p>
-            <p style="font-size: 1.3rem; color: #1f77b4;">• <b>실제 환자의 심장 부피 (ml):</b> <strong>{total_vol_ml:.2f} ml</strong></p>
+            <p style="font-size: 1.3rem; color: #3b82f6;">• <b>실제 환자의 심장 부피 (ml):</b> <strong>{total_vol_ml:.2f} ml</strong></p>
         </div>
         """, unsafe_allow_html=True)
         
