@@ -53,6 +53,16 @@
 * **시각 자료 (데이터 로더 연동 테스트)**:
   ![3분할 로더 로딩 검증](assets/dataset_verification.png)
 
+### ✅ [완료] Phase 5: 실시간 3D 데이터 증강 및 표적 중심 패치 로더 구축 (2일차)
+* **작업 내용**:
+  * 모델 일반화 성능 극대화 및 VRAM 절약을 위해 실시간 **3D 데이터 증강 파이프라인** 구축 완료 (`src/dataset.py`).
+  * **3D 공간 변형**: 임의 각도 3D 회전(`RandRotated`, Z축 기준 ±15도), 임의 비율 축소/확대(`RandZoomd`, 90~110%) 적용.
+  * **3D 밝기 변형**: 장비 편차 학습을 위해 이미지 밝기 곱/평행이동 무작위 변환 (`RandScaleIntensityd`, `RandShiftIntensityd` 각 ±10%) 적용.
+  * **표적 영역 중심 크롭**: 무의미한 배경 대신 실제 심장 구조(RV, MYO, LV) 주위로만 4개의 `128 x 128 x 8` 크기 3D 패치를 1:1 확률 비중으로 자동 추출하는 `RandCropByPosNegLabeld` 장착.
+  * `verify_augmentation.py` 테스트 결과, 단일 환자 로딩 시 서로 다르게 비틀리고 밝기가 변동된 4개의 타겟 함유 3D 패치들이 생성됨을 시각적으로 전원 검증 완료.
+* **시각 자료 (데이터 증강 및 패치 크롭 검증)**:
+  ![3D 데이터 증강 및 패치 크롭 검증](assets/augmentation_verification.png)
+
 ---
 
 ## 🗂️ 현재 원격 저장소 동기화 현황 (Git)
@@ -64,13 +74,12 @@
   3. `Add preprocessing visualization script and comparison figure` (MONAI 전처리 비교 자산 추가)
   4. `Update app_guide with preprocessing comparison options` (대비 조절 토글이 반영된 웹 가이드 업데이트)
   5. `Implement patient-level 3-split and core preprocessing dataset loader` (3분할 분리 및 대비 필터 연동 데이터 로더 구현)
+  6. `Update Streamlit guide with data augmentation verification page` (실시간 3D 데이터 증강 시각화 및 검증 코드 연동)
 
 ---
 
 ## 🚀 Next Steps (진행 예정 작업)
-1. **데이터 증강 (Data Augmentation) 방식 협의 및 추가**:
-   * 학습 오버피팅을 방지하기 위해 학습용 데이터셋에 무작위 회전, 스케일링, 패치 크롭 등의 데이터 증강(Augmentation) 규칙을 논의 후 추가.
-2. **3D U-Net 신경망 설계 및 학습 스크립트 작성**:
+1. **3D U-Net 신경망 설계 및 학습 스크립트 작성**:
    * RTX 4070 Ti 가속과 PyTorch AMP(Mixed Precision 16-bit)를 활용해 VRAM 용량 효율을 올리면서 오버랩 손실 함수(`DiceCELoss`)를 적용한 훈련 엔진 개발.
-3. **임상 정량 수치 평가 모듈 연동**:
+2. **임상 정량 수치 평가 모듈 연동**:
    * 검증 데이터셋에 대해 Dice Score 평가 후, 예측 마스크를 활용해 박출률(EF)과 질량(Mass) 오차율을 자동 역산하는 최종 비즈니스 로직 작성.
