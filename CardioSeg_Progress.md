@@ -38,6 +38,12 @@
   * **해결**: 의료 영상 전처리 표준인 **Contrast Windowing (상/하위 2% 클리핑)** 기법을 시각화에 적용. `[percentile(2), percentile(98)]` 밖의 노이즈 밝기 값을 잘라냄으로써 심실 벽과 혈류 영역의 흑백 경계를 뚜렷하게 복원 완료.
   * **Streamlit 연동**: 웹 대시보드에 '일반 시각화' vs '대비 개선 시각화' 토글 기능을 추가하여 선명도 변화를 즉시 확인 가능하도록 개선.
 
+### ✅ [완료] Phase 4: 환자 단위 3분할 데이터셋 구축 & 대비 정량 필터 연동 (2일차)
+* **작업 내용**:
+  * 데이터 누수(Data Leakage)를 원천 차단하기 위해 환자 번호 기준(Patient-level)으로 **Train(80명, 160파일) / Val(10명, 20파일) / Test(10명, 20파일)**로 격리 완료 (`src/dataset.py`).
+  * 3D 데이터셋 파이프라인에 대비 개선(Contrast Windowing) 필터인 `ScaleIntensityRangePercentilesd`를 공식 연동하여, 로딩되는 모든 3D 이미지의 강도를 `0.0 ~ 1.0` 표준 스케일로 균일하게 자동 가공.
+  * `verify_dataset.py`를 통해 실제 MONAI Dataset 로딩 시, 이미지 세기 범위가 정확히 최솟값 0.0, 최댓값 1.0으로 고정되고 심실 경계선이 뚜렷하게 복원됨을 검증 완료.
+
 ---
 
 ## 🗂️ 현재 원격 저장소 동기화 현황 (Git)
@@ -48,12 +54,13 @@
   2. `Add GPU verification script` (RTX 4070 Ti CUDA 검증 코드 추가)
   3. `Add preprocessing visualization script and comparison figure` (MONAI 전처리 비교 자산 추가)
   4. `Update app_guide with preprocessing comparison options` (대비 조절 토글이 반영된 웹 가이드 업데이트)
+  5. `Implement patient-level 3-split and core preprocessing dataset loader` (3분할 분리 및 대비 필터 연동 데이터 로더 구현)
 
 ---
 
 ## 🚀 Next Steps (진행 예정 작업)
-1. **MONAI 3D Dataset & DataLoader 구현**:
-   * 학습 데이터를 Mini-batch로 쪼개고 데이터 증강(Data Augmentation - RandSpatialCrop, Rotation 등)을 적용해 모델에 흘려줄 학습 파이프라인 구축.
+1. **데이터 증강 (Data Augmentation) 방식 협의 및 추가**:
+   * 학습 오버피팅을 방지하기 위해 학습용 데이터셋에 무작위 회전, 스케일링, 패치 크롭 등의 데이터 증강(Augmentation) 규칙을 논의 후 추가.
 2. **3D U-Net 신경망 설계 및 학습 스크립트 작성**:
    * RTX 4070 Ti 가속과 PyTorch AMP(Mixed Precision 16-bit)를 활용해 VRAM 용량 효율을 올리면서 오버랩 손실 함수(`DiceCELoss`)를 적용한 훈련 엔진 개발.
 3. **임상 정량 수치 평가 모듈 연동**:
