@@ -17,7 +17,12 @@ def get_3d_unet(in_channels=1, out_channels=4):
         in_channels=in_channels,
         out_channels=out_channels,
         channels=(16, 32, 64, 128, 256),  # Encoder/Decoder channels
-        strides=(2, 2, 2, 2),             # Downsampling factors
+        strides=(
+            (2, 2, 1),
+            (2, 2, 2),
+            (2, 2, 2),
+            (2, 2, 2)
+        ),             # Downsampling factors (Z-axis anisotropic downsampling)
         num_res_units=2,                  # Number of residual units in each block
         norm="instance",                  # Instance Normalization (essential for small batch sizes like 2)
         dropout=0.1                       # Dropout for regularization

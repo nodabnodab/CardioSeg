@@ -227,15 +227,15 @@ def train_pipeline():
                         epochs_no_improve = 0  # Reset patience
                         
                         torch.save(model.state_dict(), os.path.join(base_dir, "best_metric_model.pth"))
-                        print(f"🏆 New best validation metric: {best_metric:.4f}! Saved model weight.")
+                        print(f"[BEST] New best validation metric: {best_metric:.4f}! Saved model weight.")
                     else:
                         epochs_no_improve += 1
-                        print(f"ℹ️ No improvement. Patience count: {epochs_no_improve}/{early_stopping_patience}")
+                        print(f"[INFO] No improvement. Patience count: {epochs_no_improve}/{early_stopping_patience}")
                 
                 # Check for Early Stopping
                 if epochs_no_improve >= early_stopping_patience:
                     print("="*60)
-                    print(f"🛑 EARLY STOPPING TRIGGERED AT EPOCH {epoch}!")
+                    print(f"[STOP] EARLY STOPPING TRIGGERED AT EPOCH {epoch}!")
                     print(f"No improvement for {early_stopping_patience} consecutive validations.")
                     print(f"Loading best weights from epoch {best_metric_epoch} (Mean Dice: {best_metric:.4f}).")
                     print("="*60)
@@ -271,12 +271,12 @@ def train_pipeline():
             
     except KeyboardInterrupt:
         print("\n" + "="*60)
-        print("⚠️ TRAINING INTERRUPTED BY USER (KeyboardInterrupt)")
+        print("[WARN] TRAINING INTERRUPTED BY USER (KeyboardInterrupt)")
         print("Saving current history and state...")
         print("="*60)
     except Exception as e:
         print("\n" + "="*60)
-        print(f"❌ TRAINING CRASHED WITH ERROR: {e}")
+        print(f"[ERROR] TRAINING CRASHED WITH ERROR: {e}")
         print("="*60)
         raise e
     finally:
