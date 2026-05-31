@@ -155,6 +155,24 @@ with tab2:
         else:
             st.warning("대비 개선 이미지가 존재하지 않습니다. `visualize_tuning.py`를 실행해 주세요.")
 
+    st.markdown("---")
+    st.subheader("🔄 3D 데이터 증강 (Data Augmentation) 및 패치 크롭 검증")
+    st.write("""
+    모델 학습 시 VRAM 오버플로우를 예방하고 데이터 다양성을 높이기 위해 실시간으로 적용되는 **3D 데이터 증강 및 패치 크롭** 시각화 결과입니다.
+    하나의 환자 볼륨에서 심장 부위를 위주로 **4개의 서로 다른 128x128x8 크기의 3D 패치**를 무작위로 추출하며, 회전/줌/밝기 변형이 실시간으로 동반됩니다.
+    """)
+    
+    img_aug_path = os.path.join(assets_dir, "augmentation_verification.png")
+    if os.path.exists(img_aug_path):
+        st.image(Image.open(img_aug_path), caption="실시간 3D 데이터 증강 및 패치 추출 결과 (4개 패치 비교)", use_container_width=True)
+        st.info("""
+        💡 **확인 포인트:**
+        - **회전/명암 변동:** 각 패치마다 무작위 회전(Rotated) 및 밝기 스케일링이 들어가 형태와 음영이 미세하게 다릅니다.
+        - **표적 중심 추출:** 배경만 잘라내지 않고, 타겟(우심실/좌심실/심근)이 일부라도 포함된 영역 위주로 똑똑하게 잘라내어 학습 효율을 극대화합니다.
+        """)
+    else:
+        st.warning("데이터 증강 검증 이미지가 존재하지 않습니다. `verify_augmentation.py`를 실행해 주세요.")
+
 # Tab 3: Clinical Metrics
 with tab3:
     st.subheader("3. 핵심 의학 용어 & 임상 지표 설명")
