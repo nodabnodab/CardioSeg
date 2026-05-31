@@ -56,9 +56,10 @@ st.sidebar.info("""
 """)
 
 # Tabs for Developer
-tab_prep, tab_aug = st.tabs([
+tab_prep, tab_aug, tab_train = st.tabs([
     "⚙️ 3D 데이터 전처리 (Preprocessing)",
-    "🔄 3D 데이터 증강 & 크롭 (Augmentation)"
+    "🔄 3D 데이터 증강 & 크롭 (Augmentation)",
+    "📈 학습 곡선 모니터링 (Training Monitor)"
 ])
 
 # Tab 1: Preprocessing
@@ -125,3 +126,69 @@ with tab_aug:
         """)
     else:
         st.warning(f"선택한 이미지({img_name})가 존재하지 않습니다. `visualize_aug_cases.py`를 먼저 작동해 주세요.")
+
+# Tab 3: Training Monitor
+with tab_train:
+    st.subheader("3. 3D U-Net 실시간 학습 곡선 모니터링")
+    st.write("""
+    터미널에서 `python train.py`를 실행하여 훈련이 활성화되면, 실시간으로 에포크별 오차(Loss) 감소 추이와 
+    검증(Validation)용 3차원 슬라이딩 윈도우 Dice 성능 곡선이 기록되어 아래 그래프에 업데이트됩니다.
+    """)
+    
+    import json
+    history_file = os.path.join(assets_dir, "training_history.json")
+    plot_file = os.path.join(assets_dir, "training_curves.png")
+    
+    if os.path.exists(history_file) and os.path.exists(plot_file):
+        try:
+            with open(history_file, "r") as f:
+                history = json.load(f)
+        except Exception:
+            history = {}
+            
+        epochs = history.get("epoch", [])
+        train_loss = history.get("train_loss", [])
+        val_mean_dice = history.get("val_mean_dice", [])
+        
+        if epochs:
+            latest_epoch = epochs[-1]
+            latest_loss = train_loss[-1]
+            
+            # Find best validation score (ignoring placeholder zeros)
+            valid_dices = [d for d in val_mean_dice if d > 0]
+            best_dice = max(valid_dices) if valid_dices else 0.0
+            
+            best_epoch = "-"
+            if best_dice > 0:
+                best_idx = val_mean_dice.index(best_dice)
+                best_epoch = epochs[best_idx]
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("현재 진행 에포크", f"{latest_epoch} / 150")
+            with col2:
+                st.metric("최우수 평균 Dice Score", f"{best_dice:.4f}" if best_dice > 0 else "측정 전", help="배경을 제외한 우심실, 심근, 좌심실의 3D 평균 정확도 (Best Epoch: {best_epoch})")
+            with col3:
+                st.metric("현재 훈련 Loss", f"{latest_loss:.4f}")
+                
+            st.image(Image.open(plot_file), caption="실시간 3D U-Net 훈련 추이 그래프 (Loss & Dice)", use_container_width=True)
+            
+            # Show history log summary
+            with st.expander("📋 자세한 에포크별 성능 로그 확인"):
+                st.dataframe(history, use_container_width=True)
+        else:
+            st.info("학습 기록 파일은 존재하지만, 아직 에포크가 시작되지 않았습니다.")
+    else:
+        st.info("💡 **실시간 학습 모니터 작동 방법:**")
+        st.warning("현재 학습 히스토리 파일이 존재하지 않습니다. 먼저 터미널에서 학습을 구동해 주세요.")
+        st.markdown("""
+        1. 터미널을 열고 가상환경을 활성화합니다:
+           ```powershell
+           .venv\\Scripts\\activate
+           ```
+        2. 훈련 명령어를 실행하여 3D U-Net 학습을 구동시킵니다:
+           ```powershell
+           python train.py
+           ```
+        3. 학습이 활성화되고 1 에포크가 끝나는 즉시, 본 화면에 실시간 손실 곡선 및 정확도 메트릭 패널이 자동 로딩됩니다!
+        """)
