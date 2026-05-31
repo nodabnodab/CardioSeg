@@ -1,0 +1,24 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Data and large files (excluding from Git tracking)
+data/
+kaggledata/
+*.zip
+*.nii.gz
+*.h5
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.cache/
+.ipynb_checkpoints/
+
+# IDE / System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
