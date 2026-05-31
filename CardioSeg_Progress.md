@@ -27,6 +27,8 @@
   * 비의학 전공자 및 판독의 소통용 **Streamlit 가이드 웹 앱(`app_guide.py`)** 구현.
   * 심장 3대 구조(RV, MYO, LV) 설명 카드 및 박출률(EF) 공식 LaTeX 렌더링.
   * **실시간 복셀 부피 계산 샌드박스** 구축 (Spacing 수치와 복셀 수 입력 시 환자의 심실 부피를 실시간 계산하여 임상 수치 납득).
+* **시각 자료**:
+  ![심장 MRI 원본 및 레이블 오버레이](assets/mri_overlay.png)
 
 ### ✅ [완료] Phase 3: 3D 전처리 파이프라인 구축 및 대비 최적화 (2일차)
 * **작업 내용**:
@@ -37,12 +39,19 @@
   * **분석**: PyTorch의 3D 공간 보간은 `bilinear`(Trilinear)와 `nearest`만 연산 가능하여 물리적인 업샘플링 보간 흐림도 동반됨.
   * **해결**: 의료 영상 전처리 표준인 **Contrast Windowing (상/하위 2% 클리핑)** 기법을 시각화에 적용. `[percentile(2), percentile(98)]` 밖의 노이즈 밝기 값을 잘라냄으로써 심실 벽과 혈류 영역의 흑백 경계를 뚜렷하게 복원 완료.
   * **Streamlit 연동**: 웹 대시보드에 '일반 시각화' vs '대비 개선 시각화' 토글 기능을 추가하여 선명도 변화를 즉시 확인 가능하도록 개선.
+* **시각 자료 (비교)**:
+  * *기본 전처리 (전체 범위 매핑 시 흐릿함)*:
+    ![기본 전처리 결과](assets/preprocessing_comparison.png)
+  * *대비 개선 전처리 (상하위 2% 클리핑 후 선명한 윤곽)*:
+    ![대비 개선 전처리 결과](assets/preprocessing_comparison_contrast.png)
 
 ### ✅ [완료] Phase 4: 환자 단위 3분할 데이터셋 구축 & 대비 정량 필터 연동 (2일차)
 * **작업 내용**:
   * 데이터 누수(Data Leakage)를 원천 차단하기 위해 환자 번호 기준(Patient-level)으로 **Train(80명, 160파일) / Val(10명, 20파일) / Test(10명, 20파일)**로 격리 완료 (`src/dataset.py`).
   * 3D 데이터셋 파이프라인에 대비 개선(Contrast Windowing) 필터인 `ScaleIntensityRangePercentilesd`를 공식 연동하여, 로딩되는 모든 3D 이미지의 강도를 `0.0 ~ 1.0` 표준 스케일로 균일하게 자동 가공.
   * `verify_dataset.py`를 통해 실제 MONAI Dataset 로딩 시, 이미지 세기 범위가 정확히 최솟값 0.0, 최댓값 1.0으로 고정되고 심실 경계선이 뚜렷하게 복원됨을 검증 완료.
+* **시각 자료 (데이터 로더 연동 테스트)**:
+  ![3분할 로더 로딩 검증](assets/dataset_verification.png)
 
 ---
 
