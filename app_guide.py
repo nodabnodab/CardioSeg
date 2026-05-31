@@ -129,6 +129,32 @@ with tab2:
     else:
         st.error("이미지 파일이 `assets/` 폴더에 존재하지 않습니다. 먼저 이미지 생성 스크립트가 실행되었는지 확인해 주세요.")
 
+    st.markdown("---")
+    st.subheader("⚙️ 3D 데이터 전처리 (Preprocessing) 결과 비교")
+    st.write("모델 학습을 위해 해상도 통일(Spacing), 전경 추출(Crop), 밝기 정규화(Normalize)를 수행한 결과입니다.")
+    
+    prep_option = st.radio(
+        "시각화 옵션 선택:",
+        ["기본 전처리 (전체 범위 시각화)", "대비 개선 전처리 (의료용 Contrast Windowing 적용)"],
+        horizontal=True
+    )
+    
+    img_prep_path = os.path.join(assets_dir, "preprocessing_comparison.png")
+    img_prep_contrast_path = os.path.join(assets_dir, "preprocessing_comparison_contrast.png")
+    
+    if prep_option == "기본 전처리 (전체 범위 시각화)":
+        if os.path.exists(img_prep_path):
+            st.image(Image.open(img_prep_path), caption="기본 전처리 결과 (2x2)", use_container_width=True)
+            st.info("💡 **특징:** 밝기 정규화(평균 0, 표준편차 1) 후 단순히 최소/최대값 범위로 그려 대비가 분산되어(Washed-out) 약간 흐려 보입니다.")
+        else:
+            st.warning("전처리 비교 이미지가 존재하지 않습니다. `visualize_preprocessing.py`를 실행해 주세요.")
+    else:
+        if os.path.exists(img_prep_contrast_path):
+            st.image(Image.open(img_prep_contrast_path), caption="대비 개선(Contrast Windowing) 적용 결과 (2x2)", use_container_width=True)
+            st.success("✨ **특징:** 밝기 노이즈(상위 2%, 하위 2%)를 깎아내고 중심부 장기 대비만 극대화하는 의료용 Windowing 기법을 적용하여 경계선과 픽셀들이 선명하게 복원되었습니다.")
+        else:
+            st.warning("대비 개선 이미지가 존재하지 않습니다. `visualize_tuning.py`를 실행해 주세요.")
+
 # Tab 3: Clinical Metrics
 with tab3:
     st.subheader("3. 핵심 의학 용어 & 임상 지표 설명")
