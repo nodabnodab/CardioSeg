@@ -93,19 +93,35 @@ with tab_prep:
 
 # Tab 2: Augmentation
 with tab_aug:
-    st.subheader("2. 실시간 3D 데이터 증강 및 패치 크롭 검증")
+    st.subheader("2. 원본 데이터셋 대비 실시간 3D 데이터 증강 및 패치 크롭 검출 비교")
     st.write("""
-    학습 중 실시간(On-the-fly)으로 무작위 회전(Z축 ±15도), 줌(90~110%), 밝기 변동(±10%)을 가하고, 
-    심장 마스크가 포함된 영역 근처에서 `128 x 128 x 8` 크기의 3D 패치 4개를 추출한 모습입니다.
+    학습 볼륨으로부터 어떻게 실시간으로 회전/스케일링이 가해지고, 
+    심장 구조체 근처에서 `128 x 128 x 8` 크기의 3D 패치 4개가 추출되었는지를 **원본 3D 볼륨(좌측)**과 **4개의 증강 패치(우측)**를 매핑하여 시각화한 결과입니다.
     """)
     
-    img_aug_path = os.path.join(assets_dir, "augmentation_verification.png")
-    if os.path.exists(img_aug_path):
-        st.image(Image.open(img_aug_path), caption="실시간 3D 데이터 증강 및 패치 추출 결과 (4개 패치 비교)", use_container_width=True)
+    # Let the developer select the case to study
+    case_option = st.selectbox(
+        "🔎 세부 검증용 환자 사례(Case) 선택:",
+        ["Case 1 (Patient 001 - 정상 박출률 심장)", "Case 2 (Patient 006 - 중간 크기 심장)", "Case 3 (Patient 011 - 우심실 확장 양상 심장)"]
+    )
+    
+    case_to_file = {
+        "Case 1 (Patient 001 - 정상 박출률 심장)": "aug_case_1.png",
+        "Case 2 (Patient 006 - 중간 크기 심장)": "aug_case_2.png",
+        "Case 3 (Patient 011 - 우심실 확장 양상 심장)": "aug_case_3.png"
+    }
+    
+    img_name = case_to_file[case_option]
+    img_path = os.path.join(assets_dir, img_name)
+    
+    if os.path.exists(img_path):
+        st.image(Image.open(img_path), caption=f"실시간 3D 데이터 증강 및 4개 패스 비교 - {case_option}", use_container_width=True)
+        st.success(f"✨ **{case_option} 분석 완료:**")
         st.info("""
         💡 **개발자 확인 포인트:**
-        - **회전/명암 변동:** 각 패치마다 무작위 회전(Rotated) 및 밝기 스케일링이 적용되어 형태와 음영이 무작위로 다릅니다.
-        - **표적 중심 추출:** 배경만 잘라내지 않고, 타겟(우심실/좌심실/심근)이 일부라도 포함된 영역 위주로 영리하게 잘라내어 학습 효율을 극대화합니다.
+        - **원본 대조 (좌측 2개 이미지)**: Spacing 해상도가 보정되고 대비가 윈도잉 정규화된 3차원 원본 볼륨의 중간 단면입니다.
+        - **증강 패치 대조 (우측 8개 이미지)**: 원본으로부터 Z축 기준 회전(Rotation) 및 스케일링(Scale Shift)이 실시간으로 적용되고, 심실 경계(RV/LV/MYO)를 표적으로 성공적으로 잘라낸 모습입니다.
+        - **클래스 균형(Class Balancing)**: 각 패치에 1번(우심실), 2번(심근), 3번(좌심실) 중 최소 1개 이상의 타겟 조직이 반드시 균일하게 함유되도록 크롭하여 학습 수렴 속도가 매우 빠릅니다.
         """)
     else:
-        st.warning("데이터 증강 검증 이미지가 존재하지 않습니다. `verify_augmentation.py`를 실행해 주세요.")
+        st.warning(f"선택한 이미지({img_name})가 존재하지 않습니다. `visualize_aug_cases.py`를 먼저 작동해 주세요.")
