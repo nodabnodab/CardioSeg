@@ -70,6 +70,40 @@ def train_pipeline():
     assets_dir = os.path.join(base_dir, "assets")
     os.makedirs(assets_dir, exist_ok=True)
     
+    # Backup previous run's files if they exist to prevent overwrite (Windows safe rename)
+    best_weight_path = os.path.join(base_dir, "best_metric_model.pth")
+    latest_checkpoint_path = os.path.join(base_dir, "latest_checkpoint.pth")
+    history_file_init = os.path.join(assets_dir, "training_history.json")
+    plot_file_init = os.path.join(assets_dir, "training_curves.png")
+    
+    if os.path.exists(best_weight_path):
+        backup_path = os.path.join(base_dir, "best_metric_model_backup.pth")
+        if os.path.exists(backup_path):
+            os.remove(backup_path)
+        os.rename(best_weight_path, backup_path)
+        print("[BACKUP] Existing best model weights backed up to best_metric_model_backup.pth")
+        
+    if os.path.exists(latest_checkpoint_path):
+        backup_path = os.path.join(base_dir, "latest_checkpoint_backup.pth")
+        if os.path.exists(backup_path):
+            os.remove(backup_path)
+        os.rename(latest_checkpoint_path, backup_path)
+        print("[BACKUP] Existing latest checkpoint backed up to latest_checkpoint_backup.pth")
+        
+    if os.path.exists(history_file_init):
+        backup_path = os.path.join(assets_dir, "training_history_backup.json")
+        if os.path.exists(backup_path):
+            os.remove(backup_path)
+        os.rename(history_file_init, backup_path)
+        print("[BACKUP] Existing history JSON backed up to training_history_backup.json")
+        
+    if os.path.exists(plot_file_init):
+        backup_path = os.path.join(assets_dir, "training_curves_backup.png")
+        if os.path.exists(backup_path):
+            os.remove(backup_path)
+        os.rename(plot_file_init, backup_path)
+        print("[BACKUP] Existing training curve plot backed up to training_curves_backup.png")
+
     # 1. Hyperparameters
     max_epochs = 150
     val_interval = 2

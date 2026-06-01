@@ -70,6 +70,40 @@ def train_pipeline_hr():
     assets_dir = os.path.join(base_dir, "assets")
     os.makedirs(assets_dir, exist_ok=True)
     
+    # Backup previous run's files if they exist to prevent overwrite (Windows safe rename)
+    best_weight_path = os.path.join(base_dir, "best_metric_model_hr.pth")
+    latest_checkpoint_path = os.path.join(base_dir, "latest_checkpoint_hr.pth")
+    history_file_init = os.path.join(assets_dir, "training_history_hr.json")
+    plot_file_init = os.path.join(assets_dir, "training_curves_hr.png")
+    
+    if os.path.exists(best_weight_path):
+        backup_path = os.path.join(base_dir, "best_metric_model_hr_backup.pth")
+        if os.path.exists(backup_path):
+            os.remove(backup_path)
+        os.rename(best_weight_path, backup_path)
+        print("[BACKUP] Existing best HR model weights backed up to best_metric_model_hr_backup.pth")
+        
+    if os.path.exists(latest_checkpoint_path):
+        backup_path = os.path.join(base_dir, "latest_checkpoint_hr_backup.pth")
+        if os.path.exists(backup_path):
+            os.remove(backup_path)
+        os.rename(latest_checkpoint_path, backup_path)
+        print("[BACKUP] Existing latest HR checkpoint backed up to latest_checkpoint_hr_backup.pth")
+        
+    if os.path.exists(history_file_init):
+        backup_path = os.path.join(assets_dir, "training_history_hr_backup.json")
+        if os.path.exists(backup_path):
+            os.remove(backup_path)
+        os.rename(history_file_init, backup_path)
+        print("[BACKUP] Existing HR history JSON backed up to training_history_hr_backup.json")
+        
+    if os.path.exists(plot_file_init):
+        backup_path = os.path.join(assets_dir, "training_curves_hr_backup.png")
+        if os.path.exists(backup_path):
+            os.remove(backup_path)
+        os.rename(plot_file_init, backup_path)
+        print("[BACKUP] Existing HR training curve plot backed up to training_curves_hr_backup.png")
+
     # 1. Hyperparameters
     max_epochs = 150
     val_interval = 2
