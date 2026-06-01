@@ -10,9 +10,9 @@ from monai.data import Dataset, DataLoader, list_data_collate, decollate_batch
 from monai.losses import DiceCELoss
 from monai.metrics import DiceMetric
 from monai.inferers import sliding_window_inference
-from monai.transforms import AsDiscrete
-
-from src.dataset_hr import get_acdc_splits_hr, get_train_transforms_hr, get_val_test_transforms_hr
+from monai.transforms import AsDiscrete, Spacing
+from src.dataset import get_val_test_transforms
+from src.dataset_hr import get_acdc_splits_hr, get_train_transforms_hr
 from src.model_hr import get_3d_unet_hr
 
 def save_training_plot_hr(history, save_path):
@@ -118,7 +118,7 @@ def train_pipeline_hr():
     train_files, val_files, test_files = get_acdc_splits_hr(base_dir)
     
     train_transforms = get_train_transforms_hr()
-    val_transforms = get_val_test_transforms_hr()
+    val_transforms = get_val_test_transforms()
     
     train_ds = Dataset(data=train_files, transform=train_transforms)
     val_ds = Dataset(data=val_files, transform=val_transforms)
@@ -227,25 +227,40 @@ def train_pipeline_hr():
             # Evaluation Phase
             if epoch % val_interval == 0:
                 model.eval()
+                
+                # Setup resamplers for original space evaluation
+                resampler_to_hr = Spacing(pixdim=[1.0, 1.0, 2.5], mode="bilinear")
+                resampler_to_lr = Spacing(pixdim=[1.25, 1.25, 5.0], mode="nearest")
+                post_pred_lr = AsDiscrete(to_onehot=4)
+                
                 with torch.no_grad():
                     # 1. Validation set evaluation
                     for val_data in val_loader:
-                        val_inputs, val_labels = val_data["image"].to(device), val_data["label"].to(device)
+                        val_labels = val_data["label"].to(device)
+                        
+                        # Resample input image to HR [1.0, 1.0, 2.5] for model inference (on CPU, then move to GPU)
+                        val_inputs_hr = resampler_to_hr(val_data["image"][0], src_pixdim=[1.25, 1.25, 5.0]).unsqueeze(0).to(device)
                         
                         # Sliding window evaluation (Full 3D Volume)
-                        val_outputs = sliding_window_inference(
-                            val_inputs, 
+                        val_outputs_hr = sliding_window_inference(
+                            val_inputs_hr, 
                             roi_size, 
                             sw_batch_size=4, 
                             predictor=model,
                             overlap=0.5
                         )
                         
-                        # Decollate batch and apply post-processing
-                        val_outputs = [post_pred(x) for x in decollate_batch(val_outputs)]
-                        val_labels = [post_label(x) for x in decollate_batch(val_labels)]
+                        # Post-process HR outputs to argmax [1, 1, H_hr, W_hr, D_hr] and resample to CPU
+                        val_outputs_argmax_cpu = torch.argmax(val_outputs_hr, dim=1, keepdim=True).cpu()
                         
-                        dice_metric(y_pred=val_outputs, y=val_labels)
+                        # Resample predicted argmax back to baseline LR [1.25, 1.25, 5.0]
+                        val_outputs_lr_argmax = resampler_to_lr(val_outputs_argmax_cpu[0], src_pixdim=[1.0, 1.0, 2.5]).unsqueeze(0).to(device)
+                        
+                        # Decollate batch and apply one-hot post-processing
+                        val_outputs_lr_onehot = [post_pred_lr(x) for x in decollate_batch(val_outputs_lr_argmax)]
+                        val_labels_onehot = [post_label(x) for x in decollate_batch(val_labels)]
+                        
+                        dice_metric(y_pred=val_outputs_lr_onehot, y=val_labels_onehot)
                     
                     # Aggregate metrics
                     metric_batch = dice_metric.aggregate()
@@ -271,20 +286,26 @@ def train_pipeline_hr():
                     
                     # 2. Test set evaluation (Purely for tracking and visualization)
                     for test_data in test_loader:
-                        test_inputs, test_labels = test_data["image"].to(device), test_data["label"].to(device)
+                        test_labels = test_data["label"].to(device)
                         
-                        test_outputs = sliding_window_inference(
-                            test_inputs, 
+                        # Resample test image to HR for model inference
+                        test_inputs_hr = resampler_to_hr(test_data["image"][0], src_pixdim=[1.25, 1.25, 5.0]).unsqueeze(0).to(device)
+                        
+                        test_outputs_hr = sliding_window_inference(
+                            test_inputs_hr, 
                             roi_size, 
                             sw_batch_size=4, 
                             predictor=model,
                             overlap=0.5
                         )
                         
-                        test_outputs = [post_pred(x) for x in decollate_batch(test_outputs)]
-                        test_labels = [post_label(x) for x in decollate_batch(test_labels)]
+                        test_outputs_argmax_cpu = torch.argmax(test_outputs_hr, dim=1, keepdim=True).cpu()
+                        test_outputs_lr_argmax = resampler_to_lr(test_outputs_argmax_cpu[0], src_pixdim=[1.0, 1.0, 2.5]).unsqueeze(0).to(device)
                         
-                        dice_metric(y_pred=test_outputs, y=test_labels)
+                        test_outputs_lr_onehot = [post_pred_lr(x) for x in decollate_batch(test_outputs_lr_argmax)]
+                        test_labels_onehot = [post_label(x) for x in decollate_batch(test_labels)]
+                        
+                        dice_metric(y_pred=test_outputs_lr_onehot, y=test_labels_onehot)
                         
                     metric_batch_test = dice_metric.aggregate()
                     dice_metric.reset()
