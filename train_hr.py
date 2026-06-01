@@ -108,10 +108,10 @@ def train_pipeline_hr():
     max_epochs = 150
     val_interval = 2
     batch_size = 2        # B=2 loading 4 crops of size 128x128x16 = 8 patches per step
-    learning_rate = 1e-3
+    learning_rate = 3e-4
     weight_decay = 1e-5
     roi_size = (128, 128, 16) # HR patch size
-    early_stopping_patience = 8
+    early_stopping_patience = 10
     
     # 2. Get splits & datasets
     print("Loading HR datasets and setting up loaders...")
