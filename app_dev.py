@@ -280,6 +280,7 @@ with tab_train:
             # Prepare comparison table
             lr_best_dice = 0.0
             lr_rv = 0.0; lr_myo = 0.0; lr_lv = 0.0
+            lr_test_mean = 0.0; lr_test_rv = 0.0; lr_test_myo = 0.0; lr_test_lv = 0.0
             if lr_loaded:
                 val_mean_lr = hist_lr.get("val_mean_dice", [])
                 valid_lr = [d for d in val_mean_lr if d > 0]
@@ -289,9 +290,16 @@ with tab_train:
                     lr_rv = hist_lr.get("val_rv_dice", [])[best_idx]
                     lr_myo = hist_lr.get("val_myo_dice", [])[best_idx]
                     lr_lv = hist_lr.get("val_lv_dice", [])[best_idx]
+                    
+                    if "test_mean_dice" in hist_lr and len(hist_lr["test_mean_dice"]) > best_idx:
+                        lr_test_mean = hist_lr["test_mean_dice"][best_idx]
+                        lr_test_rv = hist_lr["test_rv_dice"][best_idx]
+                        lr_test_myo = hist_lr["test_myo_dice"][best_idx]
+                        lr_test_lv = hist_lr["test_lv_dice"][best_idx]
             
             hr_best_dice = 0.0
             hr_rv = 0.0; hr_myo = 0.0; hr_lv = 0.0
+            hr_test_mean = 0.0; hr_test_rv = 0.0; hr_test_myo = 0.0; hr_test_lv = 0.0
             if hr_loaded:
                 val_mean_hr = hist_hr.get("val_mean_dice", [])
                 valid_hr = [d for d in val_mean_hr if d > 0]
@@ -301,6 +309,12 @@ with tab_train:
                     hr_rv = hist_hr.get("val_rv_dice", [])[best_idx]
                     hr_myo = hist_hr.get("val_myo_dice", [])[best_idx]
                     hr_lv = hist_hr.get("val_lv_dice", [])[best_idx]
+                    
+                    if "test_mean_dice" in hist_hr and len(hist_hr["test_mean_dice"]) > best_idx:
+                        hr_test_mean = hist_hr["test_mean_dice"][best_idx]
+                        hr_test_rv = hist_hr["test_rv_dice"][best_idx]
+                        hr_test_myo = hist_hr["test_myo_dice"][best_idx]
+                        hr_test_lv = hist_hr["test_lv_dice"][best_idx]
             
             def get_delta_str(v_hr, v_lr):
                 if v_lr == 0.0 or v_hr == 0.0:
@@ -312,10 +326,15 @@ with tab_train:
             st.markdown(f"""
             | 평가지표 (Dice) | 기본 모델 (Low-Res) | 업스케일 모델 (High-Res) | 성능 차이 (Delta) |
             |---|---|---|---|
-            | **평균 Dice Score** | {f"{lr_best_dice:.4f}" if lr_best_dice > 0 else "-"} | {f"{hr_best_dice:.4f}" if hr_best_dice > 0 else "-"} | **{get_delta_str(hr_best_dice, lr_best_dice)}** |
-            | 우심실 (RV Dice) | {f"{lr_rv:.4f}" if lr_rv > 0 else "-"} | {f"{hr_rv:.4f}" if hr_rv > 0 else "-"} | {get_delta_str(hr_rv, lr_rv)} |
-            | 심근 (MYO Dice) | {f"{lr_myo:.4f}" if lr_myo > 0 else "-"} | {f"{hr_myo:.4f}" if hr_myo > 0 else "-"} | {get_delta_str(hr_myo, lr_myo)} |
-            | 좌심실 (LV Dice) | {f"{lr_lv:.4f}" if lr_lv > 0 else "-"} | {f"{hr_lv:.4f}" if hr_lv > 0 else "-"} | {get_delta_str(hr_lv, lr_lv)} |
+            | **[검증] 평균 Dice Score** | {f"{lr_best_dice:.4f}" if lr_best_dice > 0 else "-"} | {f"{hr_best_dice:.4f}" if hr_best_dice > 0 else "-"} | **{get_delta_str(hr_best_dice, lr_best_dice)}** |
+            | [검증] 우심실 (RV Dice) | {f"{lr_rv:.4f}" if lr_rv > 0 else "-"} | {f"{hr_rv:.4f}" if hr_rv > 0 else "-"} | {get_delta_str(hr_rv, lr_rv)} |
+            | [검증] 심근 (MYO Dice) | {f"{lr_myo:.4f}" if lr_myo > 0 else "-"} | {f"{hr_myo:.4f}" if hr_myo > 0 else "-"} | {get_delta_str(hr_myo, lr_myo)} |
+            | [검증] 좌심실 (LV Dice) | {f"{lr_lv:.4f}" if lr_lv > 0 else "-"} | {f"{hr_lv:.4f}" if hr_lv > 0 else "-"} | {get_delta_str(hr_lv, lr_lv)} |
+            |---|---|---|---|
+            | **[테스트] 평균 Dice Score** | {f"{lr_test_mean:.4f}" if lr_test_mean > 0 else "-"} | {f"{hr_test_mean:.4f}" if hr_test_mean > 0 else "-"} | **{get_delta_str(hr_test_mean, lr_test_mean)}** |
+            | [테스트] 우심실 (RV Dice) | {f"{lr_test_rv:.4f}" if lr_test_rv > 0 else "-"} | {f"{hr_test_rv:.4f}" if hr_test_rv > 0 else "-"} | {get_delta_str(hr_test_rv, lr_test_rv)} |
+            | [테스트] 심근 (MYO Dice) | {f"{lr_test_myo:.4f}" if lr_test_myo > 0 else "-"} | {f"{hr_test_myo:.4f}" if hr_test_myo > 0 else "-"} | {get_delta_str(hr_test_myo, lr_test_myo)} |
+            | [테스트] 좌심실 (LV Dice) | {f"{lr_test_lv:.4f}" if lr_test_lv > 0 else "-"} | {f"{hr_test_lv:.4f}" if hr_test_lv > 0 else "-"} | {get_delta_str(hr_test_lv, lr_test_lv)} |
             """, unsafe_allow_html=True)
             
             if lr_loaded and hr_loaded:

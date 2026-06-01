@@ -38,27 +38,33 @@ def save_training_plot_hr(history, save_path):
     val_indices = [i for i, e in enumerate(epochs) if i < len(history["val_mean_dice"]) and history["val_mean_dice"][i] > 0]
     
     if val_epochs:
-        mean_dice = [history["val_mean_dice"][i] for i in val_indices]
+        val_mean = [history["val_mean_dice"][i] for i in val_indices]
+        test_mean = [history["test_mean_dice"][i] for i in val_indices] if "test_mean_dice" in history else []
+        
+        # Plot Means (Thick solid lines)
+        ax2.plot(val_epochs, val_mean, label="Val Mean Dice", color="#2b6cb0", linewidth=3.0)
+        if test_mean:
+            ax2.plot(val_epochs, test_mean, label="Test Mean Dice", color="#2f855a", linewidth=3.0) # Green for test
+            
+        # Plot Per-Class Val Dices (Thin dashed lines)
         rv_dice = [history["val_rv_dice"][i] for i in val_indices]
         myo_dice = [history["val_myo_dice"][i] for i in val_indices]
         lv_dice = [history["val_lv_dice"][i] for i in val_indices]
+        ax2.plot(val_epochs, rv_dice, label="Val RV Dice (우심실)", color="#3182ce", linestyle="--", alpha=0.5)
+        ax2.plot(val_epochs, myo_dice, label="Val MYO Dice (심근)", color="#dd6b20", linestyle="--", alpha=0.5)
+        ax2.plot(val_epochs, lv_dice, label="Val LV Dice (좌심실)", color="#e53e3e", linestyle="--", alpha=0.5)
+        ax2.legend(fontsize=10, loc="lower right")
         
-        ax2.plot(val_epochs, mean_dice, label="Mean Dice", color="#4a5568", linewidth=3.0) # Greyish blue
-        ax2.plot(val_epochs, rv_dice, label="RV Dice (우심실)", color="#3182ce", linestyle="--", alpha=0.8)
-        ax2.plot(val_epochs, myo_dice, label="MYO Dice (심근)", color="#dd6b20", linestyle="--", alpha=0.8)
-        ax2.plot(val_epochs, lv_dice, label="LV Dice (좌심실)", color="#e53e3e", linestyle="--", alpha=0.8)
-        
-    ax2.set_title("HR Validation Accuracy (Dice Score)", fontsize=12, fontweight="bold")
+    ax2.set_title("HR Validation & Test Accuracy (Dice Score)", fontsize=12, fontweight="bold")
     ax2.set_xlabel("Epoch", fontsize=10)
     ax2.set_ylabel("Dice Score (0.0 ~ 1.0)", fontsize=10)
     ax2.set_ylim(0, 1.0)
     ax2.grid(True, linestyle="--", alpha=0.5)
-    ax2.legend(fontsize=10, loc="lower right")
     
     plt.tight_layout()
     plt.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close()
-
+ 
 def train_pipeline_hr():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     assets_dir = os.path.join(base_dir, "assets")
@@ -75,13 +81,14 @@ def train_pipeline_hr():
     
     # 2. Get splits & datasets
     print("Loading HR datasets and setting up loaders...")
-    train_files, val_files, _ = get_acdc_splits_hr(base_dir)
+    train_files, val_files, test_files = get_acdc_splits_hr(base_dir)
     
     train_transforms = get_train_transforms_hr()
     val_transforms = get_val_test_transforms_hr()
     
     train_ds = Dataset(data=train_files, transform=train_transforms)
     val_ds = Dataset(data=val_files, transform=val_transforms)
+    test_ds = Dataset(data=test_files, transform=val_transforms)
     
     train_loader = DataLoader(
         train_ds, 
@@ -93,6 +100,12 @@ def train_pipeline_hr():
     )
     val_loader = DataLoader(
         val_ds, 
+        batch_size=1, 
+        num_workers=0, 
+        pin_memory=True
+    )
+    test_loader = DataLoader(
+        test_ds, 
         batch_size=1, 
         num_workers=0, 
         pin_memory=True
@@ -124,7 +137,11 @@ def train_pipeline_hr():
         "val_mean_dice": [],
         "val_rv_dice": [],
         "val_myo_dice": [],
-        "val_lv_dice": []
+        "val_lv_dice": [],
+        "test_mean_dice": [],
+        "test_rv_dice": [],
+        "test_myo_dice": [],
+        "test_lv_dice": []
     }
     history_file = os.path.join(assets_dir, "training_history_hr.json")
     plot_file = os.path.join(assets_dir, "training_curves_hr.png")
@@ -177,6 +194,7 @@ def train_pipeline_hr():
             if epoch % val_interval == 0:
                 model.eval()
                 with torch.no_grad():
+                    # 1. Validation set evaluation
                     for val_data in val_loader:
                         val_inputs, val_labels = val_data["image"].to(device), val_data["label"].to(device)
                         
@@ -217,7 +235,44 @@ def train_pipeline_hr():
                     print(f"  Mean Dice (평균):  {mean_dice:.4f}")
                     print("-" * 32)
                     
-                    # Early stopping and best model saving logic
+                    # 2. Test set evaluation (Purely for tracking and visualization)
+                    for test_data in test_loader:
+                        test_inputs, test_labels = test_data["image"].to(device), test_data["label"].to(device)
+                        
+                        test_outputs = sliding_window_inference(
+                            test_inputs, 
+                            roi_size, 
+                            sw_batch_size=4, 
+                            predictor=model,
+                            overlap=0.5
+                        )
+                        
+                        test_outputs = [post_pred(x) for x in decollate_batch(test_outputs)]
+                        test_labels = [post_label(x) for x in decollate_batch(test_labels)]
+                        
+                        dice_metric(y_pred=test_outputs, y=test_labels)
+                        
+                    metric_batch_test = dice_metric.aggregate()
+                    dice_metric.reset()
+                    
+                    test_rv_dice = metric_batch_test[0].item()
+                    test_myo_dice = metric_batch_test[1].item()
+                    test_lv_dice = metric_batch_test[2].item()
+                    test_mean_dice = metric_batch_test.mean().item()
+                    
+                    history["test_mean_dice"].append(test_mean_dice)
+                    history["test_rv_dice"].append(test_rv_dice)
+                    history["test_myo_dice"].append(test_myo_dice)
+                    history["test_lv_dice"].append(test_lv_dice)
+                    
+                    print(f"--- [Testing Epoch {epoch} (HR)] ---")
+                    print(f"  RV Dice (우심실):  {test_rv_dice:.4f}")
+                    print(f"  MYO Dice (심근):   {test_myo_dice:.4f}")
+                    print(f"  LV Dice (좌심실):  {test_lv_dice:.4f}")
+                    print(f"  Mean Dice (평균):  {test_mean_dice:.4f}")
+                    print("-" * 32)
+                    
+                    # Early stopping and best model saving logic (Validation-driven)
                     if mean_dice > best_metric:
                         best_metric = mean_dice
                         best_metric_epoch = epoch
@@ -249,6 +304,17 @@ def train_pipeline_hr():
                 history["val_rv_dice"].append(last_rv)
                 history["val_myo_dice"].append(last_myo)
                 history["val_lv_dice"].append(last_lv)
+                
+                # Carry over last known test scores for alignment
+                last_test_mean = history["test_mean_dice"][-1] if history["test_mean_dice"] else 0.0
+                last_test_rv = history["test_rv_dice"][-1] if history["test_rv_dice"] else 0.0
+                last_test_myo = history["test_myo_dice"][-1] if history["test_myo_dice"] else 0.0
+                last_test_lv = history["test_lv_dice"][-1] if history["test_lv_dice"] else 0.0
+                
+                history["test_mean_dice"].append(last_test_mean)
+                history["test_rv_dice"].append(last_test_rv)
+                history["test_myo_dice"].append(last_test_myo)
+                history["test_lv_dice"].append(last_test_lv)
             
             # Periodic checkpoint backup
             checkpoint = {
