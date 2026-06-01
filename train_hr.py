@@ -239,7 +239,7 @@ def train_pipeline_hr():
                         val_labels = val_data["label"].to(device)
                         
                         # Resample input image to HR [1.0, 1.0, 2.5] for model inference (on CPU, then move to GPU)
-                        val_inputs_hr = resampler_to_hr(val_data["image"][0], src_pixdim=[1.25, 1.25, 5.0]).unsqueeze(0).to(device)
+                        val_inputs_hr = resampler_to_hr(val_data["image"][0]).unsqueeze(0).to(device)
                         
                         # Sliding window evaluation (Full 3D Volume)
                         val_outputs_hr = sliding_window_inference(
@@ -254,7 +254,7 @@ def train_pipeline_hr():
                         val_outputs_argmax_cpu = torch.argmax(val_outputs_hr, dim=1, keepdim=True).cpu()
                         
                         # Resample predicted argmax back to baseline LR [1.25, 1.25, 5.0]
-                        val_outputs_lr_argmax = resampler_to_lr(val_outputs_argmax_cpu[0], src_pixdim=[1.0, 1.0, 2.5]).unsqueeze(0).to(device)
+                        val_outputs_lr_argmax = resampler_to_lr(val_outputs_argmax_cpu[0], output_spatial_shape=val_labels.shape[2:]).unsqueeze(0).to(device)
                         
                         # Decollate batch and apply one-hot post-processing
                         val_outputs_lr_onehot = [post_pred_lr(x) for x in decollate_batch(val_outputs_lr_argmax)]
@@ -289,7 +289,7 @@ def train_pipeline_hr():
                         test_labels = test_data["label"].to(device)
                         
                         # Resample test image to HR for model inference
-                        test_inputs_hr = resampler_to_hr(test_data["image"][0], src_pixdim=[1.25, 1.25, 5.0]).unsqueeze(0).to(device)
+                        test_inputs_hr = resampler_to_hr(test_data["image"][0]).unsqueeze(0).to(device)
                         
                         test_outputs_hr = sliding_window_inference(
                             test_inputs_hr, 
@@ -300,7 +300,7 @@ def train_pipeline_hr():
                         )
                         
                         test_outputs_argmax_cpu = torch.argmax(test_outputs_hr, dim=1, keepdim=True).cpu()
-                        test_outputs_lr_argmax = resampler_to_lr(test_outputs_argmax_cpu[0], src_pixdim=[1.0, 1.0, 2.5]).unsqueeze(0).to(device)
+                        test_outputs_lr_argmax = resampler_to_lr(test_outputs_argmax_cpu[0], output_spatial_shape=test_labels.shape[2:]).unsqueeze(0).to(device)
                         
                         test_outputs_lr_onehot = [post_pred_lr(x) for x in decollate_batch(test_outputs_lr_argmax)]
                         test_labels_onehot = [post_label(x) for x in decollate_batch(test_labels)]
