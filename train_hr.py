@@ -111,7 +111,7 @@ def train_pipeline_hr():
     learning_rate = 3e-4
     weight_decay = 1e-5
     roi_size = (128, 128, 16) # HR patch size
-    early_stopping_patience = 10
+    early_stopping_patience = 12
     
     # 2. Get splits & datasets
     print("Loading HR datasets and setting up loaders...")
