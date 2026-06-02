@@ -10,7 +10,7 @@ from monai.data import Dataset, DataLoader, list_data_collate, decollate_batch
 from monai.losses import DiceCELoss
 from monai.metrics import DiceMetric
 from monai.inferers import sliding_window_inference
-from monai.transforms import AsDiscrete, Spacing
+from monai.transforms import AsDiscrete, Spacing, KeepLargestConnectedComponent, Compose
 from src.dataset import get_val_test_transforms
 from src.dataset_hr import get_acdc_splits_hr, get_train_transforms_hr
 from src.model_hr import get_3d_unet_hr
@@ -231,7 +231,10 @@ def train_pipeline_hr():
                 # Setup resamplers for original space evaluation
                 resampler_to_hr = Spacing(pixdim=[1.0, 1.0, 2.5], mode="bilinear")
                 resampler_to_lr = Spacing(pixdim=[1.25, 1.25, 5.0], mode="nearest")
-                post_pred_lr = AsDiscrete(to_onehot=4)
+                post_pred_lr = Compose([
+                    AsDiscrete(to_onehot=4),
+                    KeepLargestConnectedComponent(applied_labels=[1, 2, 3], is_onehot=True)
+                ])
                 
                 with torch.no_grad():
                     # 1. Validation set evaluation
