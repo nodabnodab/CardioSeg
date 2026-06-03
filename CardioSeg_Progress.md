@@ -80,14 +80,15 @@ $$\mathcal{L}_{total} = 0.5 \times \mathcal{L}_{Dice} + 0.5 \times \mathcal{L}_{
 * **Dice Loss**: 전체적인 장기 덩어리(Overlap)의 합치 정도를 최적화합니다.
 * **Cross Entropy Loss**: 경계면의 픽셀 하나하나의 정답률을 옥죄어 형태학적 윤곽선을 정밀하게 정돈합니다.
 
-### 최적화 기법 및 하이퍼파라미터 (Optimizer & Scheduler)
-신경망 가중치가 안정적으로 전역 최저점(Global Minima)에 수렴할 수 있도록 고도화된 최적화 파이프라인을 구성했습니다:
+### 최적화 기법 및 학습 스케줄러 (Optimizer & Scheduler)
+안정적이고 빠른 최적화를 위해 L2 규제(Weight Decay)가 올바르게 작동하도록 개선된 **AdamW 옵티마이저**와 코사인 주기 기반으로 학습률을 조절하는 **CosineAnnealingLR 스케줄러**를 설계했습니다.
+* **최적화 도구**: `AdamW` (초기 Learning Rate = $3 \times 10^{-4}$, Weight Decay = $1 \times 10^{-5}$)
+* **학습률 스케줄러**: `CosineAnnealingLR` (최대 에포크인 150주기로 설정하여 코사인 하강 곡선에 따라 최저 손실 점근 수렴 유도)
 
-1. **AdamW Optimizer**: L2 규제(L2 Regularization)를 단순 손실 함수가 아닌 가중치 업데이트 수식에 직접 결합하여 오버피팅을 강력하게 방지하는 **`AdamW`**를 채택했습니다.
-   * **초기 학습률 (Learning Rate)**: `3e-4` (안정적인 탐색 속도 확보)
-   * **가중치 감쇠 (Weight Decay)**: `1e-5`
-2. **CosineAnnealingLR Scheduler**: 학습 초기에는 빠른 탐색을 위해 큰 보폭을 유지하다가, 에포크가 진행됨에 따라 코사인 곡선 형태를 그리며 보폭을 점진적으로 축소하는 **`CosineAnnealingLR`** 스케줄러를 적용했습니다. 이를 통해 로컬 미니마(Local Minima) 탈출 성능을 개선하고 최적 가중치 근방에 안정적으로 안착시켰습니다.
-3. **AMP (Automatic Mixed Precision)**: FP32 정밀도 연산과 FP16 반정밀도 연산을 자동으로 병행하는 **`torch.cuda.amp`** 가속을 도입하여 RTX 4070 Ti 하드웨어의 VRAM 점유율을 50% 이상 절감하고 연산 속도를 2배 이상 향상시켰습니다.
+### 혼합 정밀도 학습 (AMP - Automatic Mixed Precision)
+3D 볼륨 영상(패치 크기 `128 x 128 x 16`)의 큰 부피 때문에 단일 RTX 4070 Ti GPU에서 발생할 수 있는 메모리 OOM(Out of Memory) 문제를 방지하고 훈련 속도를 끌어올리기 위해 **FP16 혼합 정밀도 학습(`torch.cuda.amp`)**을 활용했습니다.
+* **가속 기술**: Forward/Backward 연산의 일부를 FP16(16비트 반정밀도)으로 수행하여 연산 대역폭을 확보하고 메모리 사용량을 절감했습니다.
+* **그래디언트 스케일링**: FP16 표현 범위 제한으로 인한 기울기 소실(Gradient Underflow) 문제를 차단하기 위해 **`GradScaler`**를 장착하여 동적으로 기울기 스케일을 조절하며 정밀한 오차 학습을 보장했습니다.
 
 ### 학습 진행 추이
 고해상도 파이프라인 학습 시의 에포크별 Loss 및 Validation Dice Score 추이입니다:
