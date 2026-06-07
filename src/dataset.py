@@ -6,7 +6,12 @@ from monai.transforms import (
     EnsureChannelFirstd,
     Spacingd,
     CropForegroundd,
-    ScaleIntensityRangePercentilesd
+    ScaleIntensityRangePercentilesd,
+    RandRotated,
+    RandZoomd,
+    RandScaleIntensityd,
+    RandShiftIntensityd,
+    RandCropByPosNegLabeld
 )
 
 def get_acdc_splits(base_dir):
@@ -21,21 +26,18 @@ def get_acdc_splits(base_dir):
     if not os.path.exists(images_dir) or not os.path.exists(masks_dir):
         raise FileNotFoundError(f"ACDC dataset directories not found in {acdc_dir}")
         
-    # List and pair files
     image_files = os.listdir(images_dir)
     pairs = []
     
     for img_name in image_files:
         if not img_name.endswith(".nii.gz"):
             continue
-        # Extract patient ID (e.g. 'patient001' from 'patient001_frame01.nii.gz')
         match = re.match(r"(patient\d+)_frame\d+", img_name)
         if not match:
             continue
         patient_id = match.group(1)
         patient_num = int(patient_id.replace("patient", ""))
         
-        # Expected mask name (e.g. 'patient001_frame01_gt.nii.gz')
         mask_name = img_name.replace(".nii.gz", "_gt.nii.gz")
         mask_path = os.path.join(masks_dir, mask_name)
         
@@ -46,13 +48,8 @@ def get_acdc_splits(base_dir):
                 "label": mask_path
             })
             
-    # Sort pairs by patient number and frame to keep it deterministic
     pairs.sort(key=lambda x: (x["patient_num"], x["image"]))
     
-    # Split by patient number:
-    # Train: patients 1 to 80
-    # Val: patients 81 to 90
-    # Test: patients 91 to 100
     train_files = []
     val_files = []
     test_files = []
@@ -70,10 +67,71 @@ def get_acdc_splits(base_dir):
             
     return train_files, val_files, test_files
 
-def get_preprocessing_transforms():
+def get_train_transforms():
     """
-    Returns the standard preprocessing Compose pipeline with Spacing, Crop, and Contrast Windowing.
-    Note: Data augmentation (random rotations/crops) will be added in the next step.
+    Training pipeline: Standard Preprocessing + Data Augmentations + Patch Cropping.
+    Generates 4 random 128x128x8 patches centered near the heart targets.
+    """
+    return Compose([
+        # 1. Core Preprocessing
+        LoadImaged(keys=["image", "label"]),
+        EnsureChannelFirstd(keys=["image", "label"]),
+        Spacingd(
+            keys=["image", "label"],
+            pixdim=[1.25, 1.25, 5.0],
+            mode=("bilinear", "nearest")
+        ),
+        CropForegroundd(keys=["image", "label"], source_key="image"),
+        ScaleIntensityRangePercentilesd(
+            keys=["image"],
+            lower=2.0,
+            upper=98.0,
+            b_min=0.0,
+            b_max=1.0,
+            clip=True
+        ),
+        
+        # 2. Data Augmentations (Only applied during training)
+        # Random Rotation around Z-axis (up to ~15 degrees or 0.26 rad)
+        RandRotated(
+            keys=["image", "label"],
+            range_x=0.0,
+            range_y=0.0,
+            range_z=0.26,
+            prob=0.5,
+            mode=("bilinear", "nearest")
+        ),
+        # Random Zoom (scale patient size slightly)
+        RandZoomd(
+            keys=["image", "label"],
+            min_zoom=0.9,
+            max_zoom=1.1,
+            prob=0.5,
+            mode=("bilinear", "nearest")
+        ),
+        # Random Intensity changes (simulate scanner calibration variations)
+        RandScaleIntensityd(keys=["image"], factors=0.1, prob=0.5),
+        RandShiftIntensityd(keys=["image"], offsets=0.1, prob=0.5),
+        
+        # 3. Target-focused 3D Patch Cropping
+        # Crops 4 patches of size 128x128x8.
+        # Weighs cropping centers: 1:1 ratio between heart classes (pos) and background (neg).
+        RandCropByPosNegLabeld(
+            keys=["image", "label"],
+            label_key="label",
+            spatial_size=[128, 128, 8],
+            pos=1.0,
+            neg=1.0,
+            num_samples=4,
+            image_key="image",
+            image_threshold=0.0
+        )
+    ])
+
+def get_val_test_transforms():
+    """
+    Validation & Testing pipeline: Core Preprocessing ONLY.
+    No rot/zoom distortions, no patch cropping. Loads full volume.
     """
     return Compose([
         LoadImaged(keys=["image", "label"]),
@@ -84,7 +142,6 @@ def get_preprocessing_transforms():
             mode=("bilinear", "nearest")
         ),
         CropForegroundd(keys=["image", "label"], source_key="image"),
-        # Medical Contrast Windowing: clips extreme 2% and 98% intensities, maps to [0.0, 1.0]
         ScaleIntensityRangePercentilesd(
             keys=["image"],
             lower=2.0,

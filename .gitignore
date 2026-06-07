@@ -22,3 +22,18 @@ __pycache__/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Heavy ML weights and compilation targets (Keep Git repo clean)
+*.pth
+*.pth_backup
+*backup.pth
+*.engine
+*.onnx
+latest_checkpoint*
+best_metric_model*
+
+# Unwanted old/backup files
+CardioSeg_Progress_old.md
+assets/old/
+assets/training_history*.json
+
