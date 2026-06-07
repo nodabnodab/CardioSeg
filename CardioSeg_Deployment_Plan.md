@@ -21,9 +21,9 @@ graph TD
    * 공식 NGC TensorRT 도커 이미지(`nvcr.io/nvidia/tensorrt:23.08-py3`) 활용.
    * Dynamic Shape Profile(`1x1x128x128x8` ~ `1x1x128x128x32`) 주입을 통한 형상 충돌 해결.
    * RTX 4070 Ti 기준 **평균 지연 시간 0.88ms (1080.6 QPS)** 가속 성공.
-3. **[4단계] 전체 가동 환경 자체 Docker 배포 패키징 (현재 진행 대기 🚀)**
+3. **[4단계] 전체 가동 환경 자체 Docker 배포 패키징 (완료 🟢)**
    * 최적화된 Dockerfile 및 원클릭 구동 스크립트 작성.
-4. **[5단계] C++ 추론 파이프라인 및 CMakeLists 자산화 (대기 중)**
+4. **[5단계] C++ 추론 파이프라인 및 CMakeLists 자산화 (현재 진행 대기 🚀)**
    * ONNX Runtime C++ API 기반의 네이티브 추론 모듈 작성.
 
 ---

@@ -5,8 +5,18 @@ import torch
 import numpy as np
 import streamlit as st
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 from PIL import Image
 import nibabel as nib
+
+# Check if Nanum fonts exist (commonly installed in Linux/Docker for Korean support)
+try:
+    nanum_fonts = [f for f in fm.findSystemFonts() if "Nanum" in f or "nanum" in f.lower()]
+    if nanum_fonts:
+        plt.rcParams["font.family"] = "NanumGothic"
+        plt.rcParams["axes.unicode_minus"] = False
+except Exception:
+    pass
 
 from monai.inferers import sliding_window_inference
 from monai.transforms import AsDiscrete, Spacing
