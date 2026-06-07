@@ -63,6 +63,25 @@ echo [SUCCESS] Container started successfully!
 echo [SUCCESS] Access the Clinical Dashboard at: http://localhost:8501
 ```
 
+### 4.4 4단계 성공 증명 방식 (How to Prove Stage 4 Success)
+
+도커 배포 패키징이 상용 수준으로 완료되었다는 사실은 다음 **4가지 핵심 항목**으로 완벽하게 증명됩니다:
+
+1. **컨테이너 내부 GPU 파스스루 연동 증명 (`nvidia-smi` 조회)**:
+   - 컨테이너 내부 환경에서 호스트 PC의 RTX 4070 Ti 그래픽카드를 올바르게 터널링하여 가용하고 있는지 증명합니다.
+   - **증명 명령어**: `docker exec cardioseg3d_app nvidia-smi`
+   - **기대 결과**: 호스트 PC의 그래픽카드 스펙과 드라이버 버전이 컨테이너 내부 터미널에 정상 출력됩니다.
+2. **네트워크 포트 가용성 증명 (포트 오픈 확인)**:
+   - 호스트의 8501 포트가 컨테이너와 오류 없이 바인딩되었는지 확인합니다.
+   - **증명 명령어**: PowerShell에서 `Test-NetConnection localhost -Port 8501`
+   - **기대 결과**: `TcpTestSucceeded : True` 문구가 출력되며 서비스 가용한 네트워크 통로가 확인됩니다.
+3. **가속 런타임 초기화 로그 증명**:
+   - ONNX Runtime/TensorRT 모델이 CPU Fallback 없이 GPU 하드웨어 가속기(CUDA Execution Provider)를 정상 로드했는지 확인합니다.
+   - **증명 명령어**: `docker logs cardioseg3d_app`
+   - **기대 결과**: 로그 상에 `ONNX Runtime Session created with CUDAExecutionProvider`가 출력되며 추론 백엔드가 성공적으로 활성화되었음을 입증합니다.
+4. **실제 데이터 추론 시나리오 검증**:
+   - 웹 브라우저(`http://localhost:8501`)로 진입하여 환자의 3D MRI 데이터를 피딩했을 때, 컨테이너에서 추론을 완료하고 우심실/좌심실/심근의 3차원 세그멘테이션 및 박출률(LVEF) 의학 지표를 실시간 시각화해 냄으로써 실제 작동을 최종 증명합니다.
+
 ---
 
 ## 💻 [5단계] C++ 추론 파이프라인 설계 계획
