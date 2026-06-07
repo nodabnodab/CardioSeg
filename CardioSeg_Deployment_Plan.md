@@ -84,15 +84,40 @@ echo [SUCCESS] Access the Clinical Dashboard at: http://localhost:8501
 
 ---
 
-## 💻 [5단계] C++ 추론 파이프라인 설계 계획
+## 💻 [5단계] C++ 추론 파이프라인 자산화 및 임상 통합 계획
 
-포트폴리오의 기술적 깊이를 더해줄 네이티브 C++ 개발 환경(Production Engine) 자산을 완비합니다.
+### 5.1 C++ 엔진 자산화의 필요성 (Why C++?)
 
-1. **`src/cpp/inference_engine.h` / `.cpp`**:
-   * ONNX Runtime C++ API를 활용하여 `.onnx` 가중치를 메모리에 적재하는 클래스 설계.
-   * `std::vector<float>`로 구성된 3D 복셀 데이터 버퍼를 입력받아 GPU 메모리에 바인딩하고 추론 결과를 반환하는 고성능 추론 루프 구현.
-2. **`src/cpp/CMakeLists.txt`**:
-   * 외부 종속 라이브러리(ONNX Runtime SDK 등)의 헤더와 바이너리 링크 규칙을 명시한 크로스 플랫폼 CMake 파일 작성.
+임상용 인공지능 제품을 설계할 때 Python과 Streamlit은 빠른 데모(R&D 프로토타이핑)에는 유용하지만, 실제 의료기기 상용화 단계에서는 다음과 같은 기술적 한계와 비즈니스 요구사항에 직면합니다. [5단계] C++ 추론 파이프라인 자산화는 이러한 상용화 허들을 극복하고 포트폴리오의 기술적 완성도를 병원 공급용 의료기기 수준으로 격상하기 위한 필수 과정입니다.
+
+1. **상용 의료 소프트웨어(PACS/Viewer) 에코시스템 연동**:
+   * 대부분의 대학병원 진단 워크스테이션에서 구동되는 PACS(의료영상저장전송시스템), 3차원 심장 가시화 소프트웨어는 **C++ (Qt, MFC, OpenGL 등)**로 작성되어 있습니다.
+   * AI 추론 엔진이 C++ 라이브러리(`.dll` 또는 `.lib`) 형태로 제공되어야 기존 대형 의료기기 솔루션에 별도의 서버 네트워크 레이턴시 없이 플러그인 형태로 직접 임베디드(In-process 호출)될 수 있습니다.
+2. **비즈니스 관점의 Python 환경 배포 격리 (No Python Runtime)**:
+   * 의료 현장의 기기에 Python 인터프리터, 가상환경, 대용량 GPU 가속 패키지를 개별 설치하는 것은 버저닝 관리 및 유지보수 측면에서 극도로 비효율적이며 보안 취약성을 초래합니다.
+   * ONNX Runtime C++ SDK와 가벼운 C++ 추론 엔진만으로 구성된 빌드 결과물(바이너리)은 호스트 PC에 Python을 설치하지 않고도 단독(Standalone) 구동이 가능하므로 배포 비용이 극적으로 절감됩니다.
+3. **결정론적 성능(Deterministic Latency) 및 가용 자원 극대화**:
+   * Python은 가비지 컬렉터(Garbage Collector)의 동작이나 GIL(Global Interpreter Lock)로 인해 연산 속도에 예측 불가능한 지연(Jitter)이 발생할 수 있습니다.
+   * C++ 엔진은 메모리 할당을 정적으로 제어하고(VRAM Memory Pinning), 3D 복셀 버퍼의 포인터를 GPU 메모리에 직접 복사하여 오버헤드를 제로화함으로써 실시간 진단에 필수적인 균일하고 압도적인 초저지연 연산을 보장합니다.
+
+### 5.2 C++ 추론 엔진 아키텍처 및 세부 설계
+
+C++ 추론 엔진은 ONNX Runtime C++ API를 기반으로 개발되며, 다음과 같은 3개의 주요 컴파일 자산으로 구성됩니다:
+
+1. **`src/cpp/inference_engine.h`**:
+   * 추론 엔진의 핵심 인터페이스를 구성하는 클래스 정의 헤더 파일입니다.
+   * `InferenceEngine` 클래스는 인공지능 모델 적재, GPU 옵션 세팅, 그리고 3D 복셀 데이터 입출력 버퍼 포인터 연동을 규정합니다.
+2. **`src/cpp/inference_engine.cpp`**:
+   * ONNX Runtime C++ API의 실제 구동 로직이 담긴 구현부 파일입니다.
+   * **주요 구동 시퀀스**:
+     * `Ort::Env` 및 `Ort::SessionOptions`를 구성하여 CUDA 실행 프로바이더(Execution Provider)를 세션에 활성화.
+     * `Ort::Session` 객체를 동적으로 생성하여 최적화된 `best_metric_model_hr.onnx` 모델 파일을 메모리에 바인딩.
+     * 호스트 측의 3D 영상 데이터(`std::vector<float>`, 형상: `1 * 1 * 128 * 128 * 16`)를 GPU 가속 텐서인 `Ort::Value`로 메모리 카피 없이 즉각 매핑.
+     * `session.Run()` 메소드를 트리거하여 GPU 가속 추론을 수행하고, 출력 확률 맵(형상: `1 * 4 * 128 * 128 * 16`) 획득.
+     * C++ `std::transform` 또는 OpenMP 병렬 루프를 이용해 채널 차원의 `argmax` 연산을 고속으로 수행, 최종 우심실/심근/좌심실 라벨 마스크(`std::vector<uint8_t>`) 데이터 반환.
+3. **`src/cpp/CMakeLists.txt`**:
+   * 크로스 플랫폼 빌드를 제어하는 CMake 설정 파일입니다.
+   * Windows(MSVC) 및 Linux(GCC) 환경 모두에서 ONNX Runtime C++ SDK 헤더 경로와 다이내믹 라이브러리(`.lib`/`.dll`/`.so`)를 찾아 추론 바이너리에 정확하게 컴파일-링크하도록 자동화해 줍니다.
 
 ---
 
@@ -101,3 +126,4 @@ echo [SUCCESS] Access the Clinical Dashboard at: http://localhost:8501
 * **도커 이미지 빌드 성공**: `docker build` 완료 후 `cardioseg3d:latest` 이미지가 로컬 이미지 목록에 성공적으로 나타나는지 확인.
 * **GPU 파스스루 연동**: 컨테이너가 실행된 후 Streamlit 화면의 모델 로더가 GPU 가속을 올바르게 트리거하는지 도커 로그(`docker logs`)를 통해 검증.
 * **포트 포워딩 검증**: 웹 브라우저로 `http://localhost:8501`에 접속하여 실제 3D Cardiac MRI 진단 및 박출률(LVEF) 정량화 기능이 완벽하게 가동하는지 최종 테스트.
+* **C++ 빌드 스크립트 정합성 검증**: 작성된 C++ 파일들과 CMakeLists.txt가 임포트 오류나 문법적 결함 없이 정상 빌드 가능한 구조로 구성되었는지 빌드 문법 분석 및 타겟 라이브러리 정합성 검사 수행.
